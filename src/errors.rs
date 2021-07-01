@@ -7,6 +7,8 @@ use neon;
 use serde::{de, ser};
 use std::convert::From;
 use std::fmt::Display;
+use neon::result::NeonResult;
+use neon::context::Context;
 
 error_chain! {
     errors {
@@ -85,17 +87,14 @@ impl de::Error for Error {
     }
 }
 
-#[allow(use_debug)]
-impl From<Error> for neon::result::Throw {
-    fn from(err: Error) -> Self {
-        if let ErrorKind::Js(_) = *err.kind() {
-            return neon::result::Throw;
+impl Error {
+    pub fn to_neon<'j, C, T>(self, cx: &mut C) -> NeonResult<T>
+        where
+            C: Context<'j>, {
+        if let ErrorKind::Js(_) = self.kind() {
+            return Err(neon::result::Throw)
         };
-        let msg = format!("{:?}", err);
-        unsafe {
-            neon_runtime::error::throw_error_from_utf8(msg.as_ptr(), msg.len() as i32);
-            neon::result::Throw
-        }
+        return cx.throw_error(format!("{:?}", self));
     }
 }
 

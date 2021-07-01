@@ -17,17 +17,19 @@ use serde::de::{DeserializeOwned, DeserializeSeed, EnumAccess, MapAccess, SeqAcc
 ///
 /// Can fail for various reasons see `ErrorKind`
 ///
-pub fn from_value<'j, C, T>(cx: &mut C, value: Handle<'j, JsValue>) -> LibResult<T>
+pub fn from_value<'j, C, T>(cx: &mut C, value: Handle<'j, JsValue>) -> NeonResult<T>
 where
     C: Context<'j>,
     T: DeserializeOwned + ?Sized,
 {
     let mut deserializer: Deserializer<C> = Deserializer::new(cx, value);
-    let t = T::deserialize(&mut deserializer)?;
-    Ok(t)
+    match T::deserialize(&mut deserializer) {
+        Ok(t) => Ok(t),
+        Err(err) => err.to_neon(cx),
+    }
 }
 
-pub fn from_value_opt<'j, C, T>(cx: &mut C, value: Option<Handle<'j, JsValue>>) -> LibResult<T>
+pub fn from_value_opt<'j, C, T>(cx: &mut C, value: Option<Handle<'j, JsValue>>) -> NeonResult<T>
 where
     C: Context<'j>,
     T: DeserializeOwned + ?Sized,

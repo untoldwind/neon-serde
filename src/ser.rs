@@ -25,7 +25,7 @@ fn as_num<T: num::cast::NumCast, OutT: num::cast::NumCast>(n: T) -> LibResult<Ou
 /// * `StringTooLong` if the string exceeds v8's max string size
 ///
 #[inline]
-pub fn to_value<'j, C, V>(cx: &mut C, value: &V) -> LibResult<Handle<'j, JsValue>>
+pub fn to_value<'j, C, V>(cx: &mut C, value: &V) -> NeonResult<Handle<'j, JsValue>>
 where
     C: Context<'j>,
     V: Serialize + ?Sized,
@@ -34,8 +34,11 @@ where
         cx,
         ph: PhantomData,
     };
-    let serialized_value = value.serialize(serializer)?;
-    Ok(serialized_value)
+    match value.serialize(serializer) {
+        Ok(serialized_value) => Ok(serialized_value),
+        Err(err) => err.to_neon(cx),
+    }
+
 }
 
 #[doc(hidden)]

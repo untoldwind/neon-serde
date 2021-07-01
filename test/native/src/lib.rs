@@ -51,7 +51,7 @@ struct AnObjectTwo {
 macro_rules! make_test {
     ($name:ident, $val:expr) => {
         fn $name(cx: FunctionContext) -> JsResult<JsValue> {
-            fn inner(mut cx: FunctionContext) -> neon_serde::errors::Result<Handle<JsValue>> {
+            fn inner(mut cx: FunctionContext) -> NeonResult<Handle<JsValue>> {
                 let value = $val;
 
                 let handle = neon_serde::to_value(&mut cx, &value)?;
@@ -117,7 +117,7 @@ make_test!(make_buff, { serde_bytes::Bytes::new(NUMBER_BYTES) });
 macro_rules! make_expect {
     ($name:ident, $val:expr, $val_type:ty) => {
         fn $name(cx: FunctionContext) -> JsResult<JsValue> {
-            fn inner(mut cx: FunctionContext) -> neon_serde::errors::Result<Handle<JsValue>> {
+            fn inner(mut cx: FunctionContext) -> NeonResult<Handle<JsValue>> {
                 let value = $val;
                 let arg0 = cx.argument::<JsValue>(0)?;
 
