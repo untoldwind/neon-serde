@@ -123,7 +123,7 @@ macro_rules! make_expect {
 
                 let de_serialized: $val_type = neon_serde::from_value(&mut cx, arg0)?;
                 assert_eq!(value, de_serialized);
-                Ok(JsUndefined::new().upcast())
+                Ok(JsUndefined::new(&mut cx).upcast())
             }
             Ok(inner(cx)?)
         }

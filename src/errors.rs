@@ -1,8 +1,6 @@
 //! Defines error handling types used by the create
 //! uses the `error-chain` create for generation
 
-extern crate neon_runtime;
-
 use neon;
 use serde::{de, ser};
 use std::convert::From;

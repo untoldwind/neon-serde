@@ -34,7 +34,7 @@ where
     C: Context<'j>,
     T: DeserializeOwned + ?Sized,
 {
-    let unwrapped = value.unwrap_or_else(|| JsUndefined::new().upcast());
+    let unwrapped = value.unwrap_or_else(|| JsUndefined::new(cx).upcast());
     from_value(cx, unwrapped)
 }
 
@@ -59,25 +59,25 @@ impl<'x, 'd, 'a, 'j, C: Context<'j>> serde::de::Deserializer<'x> for &'d mut Des
     where
         V: Visitor<'x>,
     {
-        if self.input.downcast::<JsNull>().is_ok() || self.input.downcast::<JsUndefined>().is_ok() {
+        if self.input.downcast::<JsNull, _>(self.cx).is_ok() || self.input.downcast::<JsUndefined, _>(self.cx).is_ok() {
             visitor.visit_unit()
-        } else if let Ok(val) = self.input.downcast::<JsBoolean>() {
-            visitor.visit_bool(val.value())
-        } else if let Ok(val) = self.input.downcast::<JsString>() {
-            visitor.visit_string(val.value())
-        } else if let Ok(val) = self.input.downcast::<JsNumber>() {
-            let v = val.value();
+        } else if let Ok(val) = self.input.downcast::<JsBoolean, _>(self.cx) {
+            visitor.visit_bool(val.value(self.cx))
+        } else if let Ok(val) = self.input.downcast::<JsString,_>(self.cx) {
+            visitor.visit_string(val.value(self.cx))
+        } else if let Ok(val) = self.input.downcast::<JsNumber, _>(self.cx) {
+            let v = val.value(self.cx);
             if v.trunc() == v {
                 visitor.visit_i64(v as i64)
             } else {
                 visitor.visit_f64(v)
             }
-        } else if let Ok(_val) = self.input.downcast::<JsBuffer>() {
+        } else if let Ok(_val) = self.input.downcast::<JsBuffer, _>(self.cx) {
             self.deserialize_bytes(visitor)
-        } else if let Ok(val) = self.input.downcast::<JsArray>() {
+        } else if let Ok(val) = self.input.downcast::<JsArray, _>(self.cx) {
             let mut deserializer = JsArrayAccess::new(self.cx, val);
             visitor.visit_seq(&mut deserializer)
-        } else if let Ok(val) = self.input.downcast::<JsObject>() {
+        } else if let Ok(val) = self.input.downcast::<JsObject, _>(self.cx) {
             let mut deserializer = JsObjectAccess::new(self.cx, val)?;
             visitor.visit_map(&mut deserializer)
         } else {
@@ -91,7 +91,7 @@ impl<'x, 'd, 'a, 'j, C: Context<'j>> serde::de::Deserializer<'x> for &'d mut Des
     where
         V: Visitor<'x>,
     {
-        if self.input.downcast::<JsNull>().is_ok() || self.input.downcast::<JsUndefined>().is_ok() {
+        if self.input.downcast::<JsNull, _>(self.cx).is_ok() || self.input.downcast::<JsUndefined, _>(self.cx).is_ok() {
             visitor.visit_none()
         } else {
             visitor.visit_some(self)
@@ -107,22 +107,24 @@ impl<'x, 'd, 'a, 'j, C: Context<'j>> serde::de::Deserializer<'x> for &'d mut Des
     where
         V: Visitor<'x>,
     {
-        if let Ok(val) = self.input.downcast::<JsString>() {
-            visitor.visit_enum(JsEnumAccess::new(self.cx, val.value(), None))
-        } else if let Ok(val) = self.input.downcast::<JsObject>() {
+        if let Ok(val) = self.input.downcast::<JsString, _>(self.cx) {
+            let v = val.value(self.cx);
+            visitor.visit_enum(JsEnumAccess::new(self.cx, v, None))
+        } else if let Ok(val) = self.input.downcast::<JsObject, _>(self.cx) {
             let prop_names = val.get_own_property_names(self.cx)?;
-            let len = prop_names.len();
+            let len = prop_names.len(self.cx);
             if len != 1 {
                 Err(ErrorKind::InvalidKeyType(format!(
                     "object key with {} properties",
                     len
                 )))?
             }
-            let key = prop_names.get(self.cx, 0)?.downcast::<JsString>().or_throw(self.cx)?;
+            let key = prop_names.get(self.cx, 0)?.downcast::<JsString, _>(self.cx).or_throw(self.cx)?;
             let enum_value = val.get(self.cx, key)?;
-            visitor.visit_enum(JsEnumAccess::new(self.cx, key.value(), Some(enum_value)))
+            let k = key.value(self.cx);
+            visitor.visit_enum(JsEnumAccess::new(self.cx, k, Some(enum_value)))
         } else {
-            let m = self.input.to_string(self.cx)?.value();
+            let m = self.input.to_string(self.cx)?.value(self.cx);
             Err(ErrorKind::InvalidKeyType(m))?
         }
     }
@@ -131,7 +133,7 @@ impl<'x, 'd, 'a, 'j, C: Context<'j>> serde::de::Deserializer<'x> for &'d mut Des
     where
         V: Visitor<'x>,
     {
-        let buff = self.input.downcast::<JsBuffer>().or_throw(self.cx)?;
+        let buff = self.input.downcast::<JsBuffer, _>(self.cx).or_throw(self.cx)?;
         let copy = self.cx.borrow(&buff, |buff| Vec::from(buff.as_slice()));
         visitor.visit_bytes(&copy)
     }
@@ -140,7 +142,7 @@ impl<'x, 'd, 'a, 'j, C: Context<'j>> serde::de::Deserializer<'x> for &'d mut Des
     where
         V: Visitor<'x>,
     {
-        let buff = self.input.downcast::<JsBuffer>().or_throw(self.cx)?;
+        let buff = self.input.downcast::<JsBuffer, _>(self.cx).or_throw(self.cx)?;
         let copy = self.cx.borrow(&buff, |buff| Vec::from(buff.as_slice()));
         visitor.visit_byte_buf(copy)
     }
@@ -171,11 +173,12 @@ struct JsArrayAccess<'a, 'j, C: Context<'j> + 'a> {
 #[doc(hidden)]
 impl<'a, 'j, C: Context<'j>> JsArrayAccess<'a, 'j, C> {
     fn new(cx: &'a mut C, input: Handle<'j, JsArray>) -> Self {
+        let len = input.len(cx);
         JsArrayAccess {
             cx,
             input,
             idx: 0,
-            len: input.len(),
+            len,
         }
     }
 }
@@ -212,7 +215,7 @@ struct JsObjectAccess<'a, 'j, C: Context<'j> + 'a> {
 impl<'x, 'a, 'j, C: Context<'j>> JsObjectAccess<'a, 'j, C> {
     fn new(cx: &'a mut C, input: Handle<'j, JsObject>) -> LibResult<Self> {
         let prop_names = input.get_own_property_names(cx)?;
-        let len = prop_names.len();
+        let len = prop_names.len(cx);
 
         Ok(JsObjectAccess {
             cx,
@@ -342,7 +345,7 @@ impl<'x, 'a, 'j, C: Context<'j>> VariantAccess<'x> for JsVariantAccess<'a, 'j, C
     {
         match self.value {
             Some(handle) => {
-                if let Ok(val) = handle.downcast::<JsArray>() {
+                if let Ok(val) = handle.downcast::<JsArray, _>(self.cx) {
                     let mut deserializer = JsArrayAccess::new(self.cx, val);
                     visitor.visit_seq(&mut deserializer)
                 } else {
@@ -369,7 +372,7 @@ impl<'x, 'a, 'j, C: Context<'j>> VariantAccess<'x> for JsVariantAccess<'a, 'j, C
     {
         match self.value {
             Some(handle) => {
-                if let Ok(val) = handle.downcast::<JsObject>() {
+                if let Ok(val) = handle.downcast::<JsObject, _>(self.cx) {
                     let mut deserializer = JsObjectAccess::new(self.cx, val)?;
                     visitor.visit_map(&mut deserializer)
                 } else {

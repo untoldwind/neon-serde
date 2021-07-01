@@ -50,7 +50,7 @@
 //!     let arg0_value :AnObject = neon_serde::from_value(&mut cx, arg0)?;
 //!     println!("{:?}", arg0_value);
 //!
-//!     Ok(JsUndefined::new().upcast())
+//!     Ok(JsUndefined::new(&mut cx).upcast())
 //! }
 //!
 //! fn serialize_something(mut cx: FunctionContext) -> JsResult<JsValue> {

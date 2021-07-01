@@ -3,18 +3,14 @@ name = "test"
 version = "0.1.0"
 authors = ["Gabriel Castro <dev@GabrielCastro.ca>"]
 license = "MIT"
-build = "build.rs"
 publish = false
 
 [lib]
 name = "test"
 crate-type = ["dylib"]
 
-[build-dependencies]
-neon-build = "0.8"
-
 [dependencies]
-neon = "0.8"
+neon =  { version = "0.8", features = [ "napi-6" ], default-features = false }
 neon-serde = { path = "../../" }
 serde_derive = "1.0.106"
 serde = "1.0.106"
